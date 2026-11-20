@@ -1,0 +1,14 @@
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+.env
+*.env
+*.log
+cert/
+certs/
+.acme.sh/
+__pycache__/
+.DS_Store
