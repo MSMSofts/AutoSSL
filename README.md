@@ -1,92 +1,80 @@
-# AutoSSL — Secure SSL Certificate Wizard
+# AutoSSL — Minimal SSL Wizard
 
-[فارسی](README.fa.md) · [Issue audit](ISSUES.md) · [Security](SECURITY.md)
+[فارسی](README.fa.md) · [Security](SECURITY.md) · [Review](ISSUES.md)
 
-Interactive **SSL certificate wizard** for Linux using Let's Encrypt and acme.sh. Run `sudo bash AutoSSL.sh` to open the menu, just like the original AutoSSL. Automated CLI mode remains available for deployment scripts.
+An independent interactive Let's Encrypt certificate manager for systemd Linux, based on [monhacer/AutoSSL](https://github.com/monhacer/AutoSSL) (MIT).
 
-> Independent project for `MSMSofts/AutoSSL`. **Does not require MSM-Pingtunnel** and does not change other applications unless explicitly configured.
+## Installation
 
-## Features
-
-- **Interactive wizard** to install dependencies, configure a domain, choose the HTTP validation mode, issue certificates, check validity, renew and diagnose failures.
-- **Verified dependency**: signed `acme.sh` release **3.1.7** pinned by annotated tag Git object SHA, checked against the pinned upstream SSH signing key. No `curl | sh`.
-- **Automatic renewal**: daily persistent `systemd` timer with randomized delay, journal logs, and optional `systemctl reload` hook on certificate install/renewal.
-- **No fake email**, forced issuance, accidental service restarts or private-key output to terminal.
-- **Standalone / Webroot HTTP-01**; support multiple domains one certificate at a time by repeating the wizard.
-- **Protected files**: `/etc/autossl/certs/DOMAIN/private.pem` (`0600`) and `fullchain.pem` (`0644`) in root-only domain folders.
-- **Diagnostics and tests**: `doctor`, `status`, Bash smoke tests and ShellCheck workflow.
-
-## Requirements
-
-- Ubuntu/Debian, Fedora/RHEL-family, or Arch with **systemd** running; root (`sudo`) privileges.
-- A public domain resolving to this VPS (check both **A and AAAA records**, if present).
-- Public inbound **TCP port 80** reachable by Let's Encrypt for HTTP-01.
-- If using standalone: port 80 must be **free now and at every future renewal**.
-- If using webroot: an existing HTTP server must serve `/.well-known/acme-challenge/` from the configured document root.
-- Network reachability to GitHub during initial installation and to the ACME CA during certificate issuance/renewal.
-
-Runtime dependencies: Bash, Git, curl, OpenSSL, socat, `ssh-keygen`, `flock`, `systemctl`, `mktemp`, CA certificates. Optional diagnostics: `ss` (iproute2) and `getent`.
-
-## Quick start (interactive wizard)
-
-```bash
+~~~bash
 git clone https://github.com/MSMSofts/AutoSSL.git
 cd AutoSSL
 sudo bash AutoSSL.sh
-```
+~~~
 
-Choose **1** to install and obtain a certificate; the wizard asks for a real email, then the domain, challenge mode, optional reload service and final confirmation. Once installed, run `sudo autossl` to open the wizard from anywhere.
+Or download and inspect just the installer:
 
-To download only the standalone script instead of cloning, use:
-
-```bash
+~~~bash
 curl -fSLo AutoSSL.sh https://raw.githubusercontent.com/MSMSofts/AutoSSL/main/AutoSSL.sh
 sudo bash AutoSSL.sh
-```
+~~~
 
-Inspect scripts before executing them as root. The script itself verifies the pinned, signed upstream acme.sh release during installation.
+Choose **1 — Install & obtain SSL** in the menu. The wizard asks **only two things**:
 
-## Non-interactive installation
+1. **Domain**, such as sub.example.com (no URL prefix).
+2. **Challenge method:** 1 = Standalone; 2 = Webroot + Nginx, automatic.
 
-```bash
-sudo bash AutoSSL.sh install --email ops@example.com --install-deps
-# Standalone (only when port 80 is free):
-sudo autossl issue --domain example.com --challenge standalone
-# Webroot (when an HTTP server already listens on port 80):
-sudo autossl issue --domain example.com --challenge webroot --webroot /var/www/html --reload-service nginx
-```
+No package-manager, email, webroot, service name or extra confirmation prompt. AutoSSL detects and installs missing dependencies, installs the pinned signed acme.sh 3.1.7 release, issues and validates the ECC certificate, and enables a daily persistent systemd renewal timer.
 
-Replace the example email and domains. `--install-deps` explicitly allows changes by your OS package manager; omit it if required programs are installed.
+Contact email is optional for Let's Encrypt. To receive CA notifications, supply a real email with this command:
 
-The service reload is **opt-in** and requires the selected systemd service to support reload. Before selecting it, separately configure your web server to use:
+~~~bash
+sudo env AUTOSSL_EMAIL=you@example.com bash AutoSSL.sh
+~~~
 
-```
-/etc/autossl/certs/example.com/private.pem
-/etc/autossl/certs/example.com/fullchain.pem
-```
+There are no fake/generated email addresses. Without contact email, expiry notices cannot be delivered by email.
 
-AutoSSL does **not** edit Nginx/Apache configuration. For a non-root web application, arrange carefully controlled group/ACL access, never `chmod 777` or world-readable private keys.
+## Result: clearly labeled PEM paths at the bottom
 
-## Manage & troubleshoot
+After a **successful** issuance, AutoSSL prints the two paths and exits the wizard:
 
-```bash
-sudo autossl                        # Wizard menu
-sudo autossl doctor --domain example.com
-sudo autossl status --domain example.com
+~~~text
+PRIVATE KEY (PEM) / کلید خصوصی:
+ /etc/autossl/certs/sub.example.com/private.pem
+
+PUBLIC CERTIFICATE (PEM) / گواهی عمومی:
+ /etc/autossl/certs/sub.example.com/public.pem
+~~~
+
+private.pem contains the secret key and is permission-restricted. public.pem points to fullchain.pem (the certificate + CA chain) and therefore stays current on renewals. The private key **contents** are never printed.
+
+## Standalone vs Webroot + Nginx
+
+| Choice | Requirements | Automation |
+| --- | --- | --- |
+| Standalone | Public inbound TCP port 80 must be **free** now **and during every future renewal** | acme.sh handles a temporary standalone listener; no existing services are stopped |
+| Webroot + Nginx | Public inbound TCP port 80 accessible | Nginx is installed/started if required; for a new hostname a managed HTTP-01 virtual host and webroot are created and tested. For a hostname with an **existing explicit Nginx server_name**, acme.sh temporary Nginx validation is used instead, without overwriting the vhost |
+
+The AutoSSL-managed HTTP virtual host for a **new domain** serves HTTP-01 challenges and returns **404 for other paths**. It does not configure your application or HTTPS. Review wildcard/default/catch-all Nginx server routing before using this option on a live domain.
+
+Correct domain A/AAAA records, public port 80, hosting firewall/NAT and network connectivity to Let's Encrypt are still required. They cannot be automatically changed without network/provider access. Wildcards need DNS-01 and are not supported.
+
+## Optional command-line administration
+
+~~~bash
+sudo autossl menu
+sudo autossl status --domain sub.example.com
+sudo autossl doctor --domain sub.example.com
 sudo autossl renew
-systemctl list-timers --all autossl-renew.timer
+sudo autossl issue --domain sub.example.com --challenge standalone
+sudo autossl issue --domain sub.example.com --challenge nginx
+sudo autossl issue --domain sub.example.com --challenge webroot --webroot /var/www/html
 systemctl status autossl-renew.timer
 journalctl -u autossl-renew.service -n 100 --no-pager
-```
+~~~
 
-`autossl renew` checks certificates and renews **only when due**. The scheduler does not stop other services to free port 80. If a reverse proxy uses 80, choose and correctly configure webroot. Avoid enabling competing Certbot/acme.sh renew jobs for the same certificate.
+The wizard does not auto-configure production TLS settings or restart unrelated services. Existing CLI users can still pass an optional --email argument during install or a --reload-service for an existing TLS service already configured to load the correct PEM files.
 
-## Security & compatibility
+**Testing:** GitHub Actions covers Bash syntax, ShellCheck and mocked standalone/wizard/Nginx/renewal cases. Actual Let's Encrypt issuance and renewal on a real VPS/domain still require an end-to-end test.
 
-The installer pins the upstream release to `3.1.7` and checks its **signed annotated tag** rather than trusting a moving branch. Updating acme.sh requires reviewing and changing the release version and tag SHA; there is deliberately no unverified automatic script upgrade. Back up `/opt/autossl` (ACME account and state) and `/etc/autossl/certs` securely, with private key permissions intact.
-
-Wildcard certificates need DNS-01 and are intentionally outside the scope of this build; HTTP-01 works for ordinary hostnames. A public real-world issuance/renewal test requires a controllable domain and VPS and is not covered by local mocked tests. See [ISSUES.md](ISSUES.md).
-
-## Source and licensing
-
-This is an enhanced derivative of [monhacer/AutoSSL](https://github.com/monhacer/AutoSSL) (MIT, copyright © 2025 AioExp). Original sources and original license are preserved in `upstream/`. This repository uses the same MIT license; see [LICENSE](LICENSE).
+See [SECURITY.md](SECURITY.md), [ISSUES.md](ISSUES.md), and the original [MIT license](upstream/LICENSE).

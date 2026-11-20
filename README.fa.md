@@ -1,103 +1,77 @@
-# AutoSSL — نسخه مستقل با نصب ویزاردی و تمدید خودکار
+# AutoSSL — ویزارد ساده و خودکار SSL
 
-[English](README.md) · [گزارش فنی مشکلات](ISSUES.md) · [امنیت](SECURITY.md)
+[English](README.md) · [امنیت](SECURITY.md) · [گزارش مشکلات](ISSUES.md)
 
-نسخه اصلاح‌شدهٔ AutoSSL برای دریافت گواهی SSL رایگان از **Let's Encrypt** روی VPS لینوکسی. **ویزارد تعاملی نسخه اصلی حفظ شده و توسعه یافته است.** علاوه بر ویزارد، اجرای غیرتعاملی از خط فرمان نیز پشتیبانی می‌شود.
+نسخه مستقل AutoSSL برای دریافت گواهی رایگان Let's Encrypt و تمدید خودکار، بر پایه [پروژه اصلی](https://github.com/monhacer/AutoSSL) با مجوز MIT.
 
-این پروژه **کاملاً مستقل از Pingtunnel** است و در مخزن جداگانه `MSMSofts/AutoSSL` نگهداری می‌شود.
+## نصب و اجرای ویزارد
 
-## امکانات جدید
-
-- نصب ویزاردی: انتخاب گزینه‌های نصب، ثبت دامنه، روش تأیید، نمایش گواهی، تمدید دستی، تشخیص مشکل و نصب وابستگی‌ها.
-- نصب نسخهٔ امضاشده و مشخص `acme.sh 3.1.7` با بررسی SHA تگ و امضای دیجیتال؛ بدون اجرای مستقیم `curl | sh`.
-- تمدید **خودکار روزانه** با `systemd timer`، اجرای جبرانی پس از خاموشی VPS و گزارش در Journal.
-- روش‌های تأیید **Standalone** (بدون وب‌سرور) و **Webroot** (برای Nginx یا Apache فعال).
-- اعتبارسنجی دامنه و ایمیل، کنترل شکست‌ها، قفل عملیات هم‌زمان و دسترسی محدود به کلید خصوصی.
-- بدون ساخت ایمیل ساختگی، تمدید اجباری غیرضروری و Restart اتفاقی سرویس‌ها.
-
-## پیش‌نیاز
-
-سیستم‌عامل لینوکس با `systemd`، دسترسی `root`، دامنه‌ای که DNS آن به سرور اشاره کند و امکان اتصال پورت **TCP 80 از اینترنت**. اگر رکورد `AAAA` دارید، IPv6 هم باید درست تنظیم شده باشد.
-
-در روش Standalone پورت ۸۰ هنگام صدور **و هنگام هر تمدید آینده** باید آزاد باشد. اگر Nginx/Apache پورت ۸۰ را گرفته است، روش Webroot را انتخاب کنید و مطمئن شوید وب‌سرور فایل‌های مسیر `/.well-known/acme-challenge/` را از webroot انتخاب‌شده ارائه می‌دهد.
-
-## نصب ویزاردی (مانند قبل)
-
-نصب مستقیم از مخزن مستقل GitHub:
-
-```bash
+~~~bash
 git clone https://github.com/MSMSofts/AutoSSL.git
 cd AutoSSL
 sudo bash AutoSSL.sh
-```
+~~~
 
-نصب سریع با دانلود تنها فایل اسکریپت:
+یا فقط اسکریپت را دانلود و بررسی کنید:
 
-```bash
+~~~bash
 curl -fSLo AutoSSL.sh https://raw.githubusercontent.com/MSMSofts/AutoSSL/main/AutoSSL.sh
 sudo bash AutoSSL.sh
-```
+~~~
 
-اسکریپت دریافتی را پیش از اجرا با دسترسی root بررسی کنید.
+در منوی اصلی گزینه **۱: نصب و دریافت گواهی** را انتخاب کنید. سپس فقط دو مورد پرسیده می‌شود:
 
-منوی اصلی:
+1. **دامنه**، مانند sub.example.com و بدون https.
+2. **روش صدور:** گزینه ۱ برای Standalone و گزینه ۲ برای Webroot + Nginx با تنظیم خودکار.
 
-```text
-1) Install & obtain SSL certificate   نصب و دریافت گواهی
-2) Issue another certificate          دریافت گواهی برای دامنه دیگر
-3) Show certificate status            نمایش مشخصات/انقضای گواهی
-4) Check automatic/manual renewal     بررسی تمدید
-5) Diagnose installation             عیب‌یابی
-6) Install dependencies               نصب وابستگی‌ها
-0) Exit                               خروج
-```
+در مسیر معمول، هیچ سؤال دیگری درباره ایمیل، نصب وابستگی‌ها، مسیر Webroot، نام سرویس یا تأیید مجدد وجود ندارد. کمبود وابستگی‌ها، نصب نسخه امضاشده acme.sh 3.1.7، صدور گواهی و تنظیم تمدید با systemd به‌صورت خودکار انجام می‌شود.
 
-ویزارد از شما **ایمیل واقعی**، دامنه، روش صدور و در صورت نیاز مسیر Webroot و نام سرویس را می‌پرسد. پس از نصب اولیه می‌توانید فقط با `sudo autossl` به ویزارد بازگردید.
+ایمیل در Let's Encrypt اجباری نیست، اما در صورت ندادن ایمیل، اعلان‌های ایمیلی را دریافت نمی‌کنید. برای ثبت ایمیل واقعی به‌صورت اختیاری:
 
-## نصب از خط فرمان
+~~~bash
+sudo env AUTOSSL_EMAIL=you@example.com bash AutoSSL.sh
+~~~
 
-```bash
-sudo bash AutoSSL.sh install --email you@example.com --install-deps
-```
+هیچ ایمیل جعلی ساخته نمی‌شود.
 
-اگر پورت ۸۰ آزاد است:
+## نمایش دو مسیر PEM در پایان
 
-```bash
-sudo autossl issue --domain sub.example.com --challenge standalone
-```
+پس از **صدور موفق**، در انتهای خروجی ویزارد مسیرها جداگانه نمایش داده می‌شوند:
 
-برای Nginx فعال:
+~~~text
+PRIVATE KEY (PEM) / کلید خصوصی:
+ /etc/autossl/certs/sub.example.com/private.pem
 
-```bash
-sudo autossl issue --domain sub.example.com --challenge webroot --webroot /var/www/html --reload-service nginx
-```
+PUBLIC CERTIFICATE (PEM) / گواهی عمومی:
+ /etc/autossl/certs/sub.example.com/public.pem
+~~~
 
-**توجه:** گزینهٔ `--reload-service nginx` فقط به سرویس تعریف‌شده فرمان Reload می‌دهد؛ سرویس باید قبلاً برای خواندن مسیرهای زیر تنظیم شده باشد. AutoSSL فایل پیکربندی Nginx را تغییر نمی‌دهد.
+فایل private.pem کلید محرمانه است. فایل public.pem به fullchain.pem (گواهی و زنجیره کامل) اشاره می‌کند و پس از تمدید به‌روز می‌ماند. **محتوای کلید خصوصی نمایش داده نمی‌شود.**
 
-```text
-/etc/autossl/certs/sub.example.com/private.pem
-/etc/autossl/certs/sub.example.com/fullchain.pem
-```
+## انتخاب روش صدور
 
-## کنترل تمدید و سلامت
+| روش | شرایط لازم |
+| --- | --- |
+| Standalone | پورت TCP 80 باید اکنون **و هنگام همه تمدیدهای آینده** آزاد و از اینترنت قابل دسترسی باشد. |
+| Webroot + Nginx | پورت TCP 80 از اینترنت قابل دسترسی باشد. ابزار Nginx را در صورت نیاز نصب می‌کند؛ برای دامنه جدید مسیر و بلوک HTTP اعتبارسنجی را می‌سازد و آزمایش می‌کند. اگر Nginx از قبل برای همان دامنه server_name مشخص داشته باشد، روش موقت acme.sh --nginx جایگزین می‌شود تا تنظیمات سایت بازنویسی نشود. |
 
-```bash
-sudo autossl
-sudo autossl doctor --domain sub.example.com
+**مهم:** بلوک Nginx خودکار برای دامنه جدید فقط فایل‌های اعتبارسنجی را ارائه می‌کند و برای مسیرهای دیگر پاسخ **404** می‌دهد؛ تنظیمات HTTPS سایت یا اپلیکیشن را تغییر نمی‌دهد. اگر از virtual host پیش‌فرض یا wildcard استفاده می‌کنید، تداخل مسیریابی را پیش از استفاده عملیاتی بررسی کنید.
+
+رکوردهای DNS (A/AAAA)، دسترسی عمومی پورت ۸۰، فایروال شرکت میزبان و NAT باید درست باشند؛ این موارد بدون دسترسی به شبکه و سرویس‌دهنده قابل اصلاح خودکار نیستند.
+
+## دستورات مدیریتی
+
+~~~bash
+sudo autossl menu
 sudo autossl status --domain sub.example.com
+sudo autossl doctor --domain sub.example.com
 sudo autossl renew
-systemctl list-timers --all autossl-renew.timer
+sudo autossl issue --domain sub.example.com --challenge standalone
+sudo autossl issue --domain sub.example.com --challenge nginx
+systemctl status autossl-renew.timer
 journalctl -u autossl-renew.service -n 100 --no-pager
-```
+~~~
 
-برای تمدید نیازی به صدور مجدد اجباری نیست؛ `acme.sh` در صورت نیاز، گواهی را تمدید می‌کند. اسکریپت خودکار برای آزادسازی پورت ۸۰ سرویس دیگری را خاموش نمی‌کند.
+نصب غیرتعاملی، Webroot دستی و ایمیل اختیاری همچنان پشتیبانی می‌شوند. گواهی Wildcard و DNS-01 پشتیبانی نمی‌شوند. موفقیت تست‌های GitHub به معنای صدور واقعی روی VPS شما نیست؛ باید صدور و تمدید واقعی با دامنه آزمایشی نیز بررسی شود.
 
-## نکات امنیتی
-
-- کلید خصوصی را به هیچ عنوان در مخزن GitHub یا یک پوشه عمومی آپلود نکنید.
-- تنظیم DNS و فایروال و همچنین پیکربندی واقعی وب‌سرور بر عهده مدیر سرور است.
-- انتشار امضاشده acme.sh عمداً ثابت نگه داشته شده؛ آپدیت آن باید با بررسی نسخه جدید انجام شود.
-- گواهی Wildcard و تأیید DNS-01 در این نسخه پشتیبانی نمی‌شوند.
-- آزمون‌ها بدون اتصال به Let's Encrypt و با کلاینت شبیه‌سازی‌شده انجام می‌شوند؛ صدور/تمدید واقعی باید پیش از بهره‌برداری روی دامنه آزمایشی کنترل شود.
-
-کد و مجوز پروژه اصلی [monhacer/AutoSSL](https://github.com/monhacer/AutoSSL) در پوشه `upstream/` نگهداری می‌شود. این مشتق با مجوز MIT ارائه می‌شود.
+[مجوز اصلی](upstream/LICENSE) · [امنیت](SECURITY.md) · [گزارش فنی](ISSUES.md)
